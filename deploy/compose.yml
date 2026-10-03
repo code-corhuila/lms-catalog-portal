@@ -1,0 +1,15 @@
+services:
+  catalog-portal:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: catalog-portal
+    restart: unless-stopped
+    ports:
+      - "3002:80"
+    networks:
+      - lms-network
+
+networks:
+  lms-network:
+    external: true
