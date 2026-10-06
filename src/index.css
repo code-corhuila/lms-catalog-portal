@@ -1,0 +1,30 @@
+@import "tailwindcss";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+
+/*
+  LMS design tokens — see library-docs/12-ux-ui/design-system.md.
+  Palette: indigo primary (trust/focus, fits an admin/back-office tool),
+  slate neutrals, Inter typeface.
+*/
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --color-primary-50: #eef2ff;
+  --color-primary-100: #e0e7ff;
+  --color-primary-500: #6366f1;
+  --color-primary-600: #4f46e5;
+  --color-primary-700: #4338ca;
+
+  --color-success-500: #10b981;
+  --color-success-600: #059669;
+  --color-warning-500: #f59e0b;
+  --color-error-500: #f43f5e;
+  --color-error-600: #e11d48;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+}
