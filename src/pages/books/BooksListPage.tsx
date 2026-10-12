@@ -12,7 +12,7 @@ type ViewState =
   | { status: 'empty' }
   | { status: 'data'; books: Book[] }
 
-type EditFieldErrors = Partial<Record<'title' | 'author' | 'category' | 'year', string>>
+type EditFieldErrors = Partial<Record<'title' | 'author' | 'category' | 'year' | 'totalCopies', string>>
 
 // Implements HU-05 (search) and HU-09 (edit)
 // (library-docs/04-requirements/user-stories.md):
@@ -24,9 +24,11 @@ export function BooksListPage() {
   const [view, setView] = useState<ViewState>({ status: 'loading' })
   const [search, setSearch] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editForm, setEditForm] = useState({ title: '', author: '', category: '', year: '' })
+  const [editForm, setEditForm] = useState({ title: '', author: '', category: '', year: '', totalCopies: '' })
   const [editFieldErrors, setEditFieldErrors] = useState<EditFieldErrors>({})
   const [editError, setEditError] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   // Rules/2-anexos/H-front.md: "Una petición más nueva reemplaza a la anterior".
   const latestRequestId = useRef(0)
@@ -57,7 +59,13 @@ export function BooksListPage() {
 
   function startEdit(book: Book) {
     setEditingId(book.id)
-    setEditForm({ title: book.title, author: book.author, category: book.category, year: String(book.year) })
+    setEditForm({
+      title: book.title,
+      author: book.author,
+      category: book.category,
+      year: String(book.year),
+      totalCopies: String(book.totalCopies),
+    })
     setEditFieldErrors({})
     setEditError(null)
   }
@@ -66,7 +74,11 @@ export function BooksListPage() {
     setEditFieldErrors({})
     setEditError(null)
     try {
-      await apiClient.patch(`/books/${id}`, { ...editForm, year: Number(editForm.year) })
+      await apiClient.patch(`/books/${id}`, {
+        ...editForm,
+        year: Number(editForm.year),
+        totalCopies: Number(editForm.totalCopies),
+      })
       setEditingId(null)
       load(search)
     } catch (err) {
@@ -82,6 +94,21 @@ export function BooksListPage() {
         setEditFieldErrors(next)
       }
       setEditError(shellError.message ?? 'Unable to update the book.')
+    }
+  }
+
+  async function deleteBook(id: string) {
+    if (!window.confirm('Delete this book? This cannot be undone.')) return
+    setDeletingId(id)
+    setDeleteError(null)
+    try {
+      await apiClient.delete(`/books/${id}`)
+      load(search)
+    } catch (err) {
+      const shellError = err as ShellError
+      setDeleteError(shellError.message ?? 'Unable to delete the book.')
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -125,20 +152,20 @@ export function BooksListPage() {
       {view.status === 'data' && (
         <Card className="overflow-x-auto p-0">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-slate-500">
+            <thead className="border-b border-slate-200 bg-slate-50/80">
               <tr>
-                <th className="px-4 py-3 font-medium">Title</th>
-                <th className="px-4 py-3 font-medium">Author</th>
-                <th className="px-4 py-3 font-medium">ISBN</th>
-                <th className="px-4 py-3 font-medium">Category</th>
-                <th className="px-4 py-3 font-medium">Year</th>
-                <th className="px-4 py-3 font-medium">Copies</th>
-                <th className="px-4 py-3 font-medium">Actions</th>
+                <th className="px-4 py-3 text-xs font-semibold tracking-wide text-slate-500 uppercase">Title</th>
+                <th className="px-4 py-3 text-xs font-semibold tracking-wide text-slate-500 uppercase">Author</th>
+                <th className="px-4 py-3 text-xs font-semibold tracking-wide text-slate-500 uppercase">ISBN</th>
+                <th className="px-4 py-3 text-xs font-semibold tracking-wide text-slate-500 uppercase">Category</th>
+                <th className="px-4 py-3 text-xs font-semibold tracking-wide text-slate-500 uppercase">Year</th>
+                <th className="px-4 py-3 text-xs font-semibold tracking-wide text-slate-500 uppercase">Copies</th>
+                <th className="px-4 py-3 text-xs font-semibold tracking-wide text-slate-500 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {view.books.map((b) => (
-                <tr key={b.id}>
+                <tr key={b.id} className="transition-colors hover:bg-slate-50/60">
                   {editingId === b.id ? (
                     <>
                       <td className="px-4 py-2 align-top">
@@ -191,7 +218,21 @@ export function BooksListPage() {
                           <p id={`year-error-${b.id}`} role="alert" className="mt-1 text-xs text-error-600">{editFieldErrors.year}</p>
                         )}
                       </td>
-                      <td className="px-4 py-2 text-slate-500">{b.availableCopies}/{b.totalCopies}</td>
+                      <td className="px-4 py-2 align-top">
+                        <input
+                          type="number"
+                          min={1}
+                          value={editForm.totalCopies}
+                          onChange={(e) => setEditForm((f) => ({ ...f, totalCopies: e.target.value }))}
+                          aria-invalid={Boolean(editFieldErrors.totalCopies)}
+                          aria-describedby={editFieldErrors.totalCopies ? `totalCopies-error-${b.id}` : undefined}
+                          className="w-20 rounded border border-slate-300 px-2 py-1"
+                        />
+                        <p className="mt-1 text-xs text-slate-400">{b.availableCopies} available now</p>
+                        {editFieldErrors.totalCopies && (
+                          <p id={`totalCopies-error-${b.id}`} role="alert" className="mt-1 text-xs text-error-600">{editFieldErrors.totalCopies}</p>
+                        )}
+                      </td>
                       <td className="px-4 py-2 align-top">
                         <div className="flex gap-2">
                           <Button onClick={() => saveEdit(b.id)}>Save</Button>
@@ -202,24 +243,36 @@ export function BooksListPage() {
                     </>
                   ) : (
                     <>
-                      <td className="px-4 py-3">{b.title}</td>
+                      <td className="px-4 py-3 font-medium text-slate-900">{b.title}</td>
                       <td className="px-4 py-3 text-slate-500">{b.author}</td>
-                      <td className="px-4 py-3 text-slate-500">{b.isbn}</td>
+                      <td className="px-4 py-3 text-slate-500 tabular-nums">{b.isbn}</td>
                       <td className="px-4 py-3 text-slate-500">{b.category}</td>
-                      <td className="px-4 py-3 text-slate-500">{b.year}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 text-slate-500 tabular-nums">{b.year}</td>
+                      <td className="px-4 py-3 tabular-nums">
                         {b.availableCopies > 0 ? (
-                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-xs text-success-600">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-success-600 ring-1 ring-emerald-600/10 ring-inset">
+                            <span className="h-1.5 w-1.5 rounded-full bg-success-500" />
                             {b.availableCopies}/{b.totalCopies} available
                           </span>
                         ) : (
-                          <span className="rounded-full bg-rose-50 px-2 py-0.5 text-xs text-error-600">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-2.5 py-0.5 text-xs font-medium text-error-600 ring-1 ring-rose-600/10 ring-inset">
+                            <span className="h-1.5 w-1.5 rounded-full bg-error-500" />
                             0/{b.totalCopies} available
                           </span>
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <Button variant="ghost" onClick={() => startEdit(b)}>Edit</Button>
+                        <div className="flex gap-2">
+                          <Button variant="ghost" onClick={() => startEdit(b)}>Edit</Button>
+                          <Button
+                            variant="ghost"
+                            isLoading={deletingId === b.id}
+                            onClick={() => deleteBook(b.id)}
+                            className="hover:bg-error-50 hover:text-error-600"
+                          >
+                            Delete
+                          </Button>
+                        </div>
                       </td>
                     </>
                   )}
@@ -227,6 +280,7 @@ export function BooksListPage() {
               ))}
             </tbody>
           </table>
+          {deleteError && <p role="alert" className="px-4 py-3 text-sm text-error-600">{deleteError}</p>}
         </Card>
       )}
     </div>
