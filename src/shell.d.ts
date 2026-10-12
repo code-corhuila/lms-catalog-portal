@@ -6,6 +6,7 @@ declare module 'shell/apiClient' {
     get<T>(url: string, config?: { params?: Record<string, unknown> }): Promise<{ data: T }>
     post<T>(url: string, body?: unknown, config?: { headers?: Record<string, string> }): Promise<{ data: T }>
     patch<T>(url: string, body?: unknown): Promise<{ data: T }>
+    delete<T>(url: string): Promise<{ data: T }>
   }
   export const apiClient: ShellApiClient
 
